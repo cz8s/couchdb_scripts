@@ -19,7 +19,7 @@
 
 
 dbs="`get_dbs $URL`"
-dbs='users_replicated'  # for debugging
+#dbs='users_replicated'  # for debugging
 
 # concurrent replication might cause stalled tasks, see #https://leap.se/code/issues/3506
 for db in $dbs
