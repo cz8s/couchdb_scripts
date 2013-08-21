@@ -1,0 +1,152 @@
+# dump_db() and restore_db() rely on python-couchdb package, 
+# python-couchdb =< 0.8-1 needs to be patched, see
+# http://code.google.com/p/couchdb-python/issues/detail?id=194 
+
+
+create_db () {
+  local url=$1
+  local db=$2
+  $CURL -X PUT "${url}/${db}"
+}
+
+db_exists () {
+  local url=$1
+  local db=$2
+  $CURL -X GET "${url}/${db}" | grep -q -v '{"error":"not_found"'
+  return $?
+}
+
+delete_db () {
+  local url=$1
+  local db=$2
+  $CURL -X DELETE "${url}/${db}"
+}
+
+delete_doc () {
+  local url=$1
+  local db=$2
+  local doc=$3
+  local latest_rev=`get_latest_rev $url $db $doc`
+  $CURL -X DELETE "${url}/${db}/${doc}?rev=$latest_rev"
+}
+
+doc_exists () {
+  local url=$1
+  local db=$2
+  local doc=$3
+  $CURL -X GET "${url}/${db}/${doc}" | grep -q -v '{"error":"not_found"'
+  return $?
+}
+
+
+dump_db () {
+  local url=$1
+  local db=$2
+  local user=$3
+  local pw=$4
+  local dumpdir=$5
+
+  [ -z $dumpdir ] && dumpdir='/var/backups/couchdb'
+  
+  echo "Dumping db \"$db\" to ${dumpdir}/$db"
+  # couchdb-dump cmd is VERY slow, simply dumping _all_docs?include_docs=true 
+  # to a file is faster with the factor ~60 (!)
+  couchdb-dump -u $user -p $pw ${url}/$db > ${dumpdir}/$db #2>/dev/null
+
+  # restoring from this will not include _design/User right
+  #$CURL -X GET "${URL}/${db}/_all_docs?include_docs=true" > ${DUMPDIR}/$db
+
+  echo "Dumping _security to ${DUMPDIR}/${db}_security"
+  $CURL -X GET "${URL}/${db}/_security" > ${DUMPDIR}/${db}_security
+
+  chmod 600 ${dumpdir}/${db}*
+}
+
+get_dbs () { 
+  local url=$1
+  local dbs="`$CURL -X GET "${url}/_all_dbs" | sed 's/[\[",]/ /g' | sed 's/]//'`"
+  echo "$dbs"
+}
+
+get_security () {
+  local url=$1
+  local db=$2
+  local security=`$CURL -X GET "${url}/${db}/_security"`
+  echo $security
+}
+
+get_latest_rev () {
+  local url=$1
+  local db=$2
+  local doc=$3
+  local latest_rev=''
+  latest_rev=`$CURL -X GET "${url}/${db}/${doc}" | sed 's/^.*"_rev":"//'|cut -d'"' -f 1`
+  echo $latest_rev
+}
+
+replicate_db () {
+  local url=$1
+  local backend_url=$2
+  local source_db=$3
+  local target_db=$4
+  local additional_opts=$5
+  local task=''
+  # old style replication, no status can be queried
+  # -X POST http://localhost:5984/_replicate -d ' {"source": "http://admin:zyMM7LZMjGE2aUvJ5sH_8SraPuxB2H5L@localhost:5984/users", "target": "http://admin:zyMM7LZMjGE2aUvJ5sH_8SraPuxB2H5L@localhost:5984/users_replicated", "create_target": true }
+  # netrcfile doesn't work with replicate, we need to use username + pw here
+  #echo "Getting _security from $db"
+  local security=`get_security $url $source_db` 
+
+  create_db $url $target_db
+
+  #echo "Set security for $tmpdb"
+  set_security $url $target_db $security
+
+  #echo "Replicating $db to $tmpdb"
+  #$CURL -X POST ${BACKEND_URL}/_replicator -d " { \"_id\":  \"${source_db}_${target_db}\", \"source\": \"$auth_url/${source_db}\", \"target\": \"$auth_url/${target_db}\", \"create_target\": true $additional_opts }"
+  task="${source_db}_${target_db}"
+  $CURL -X POST ${BACKEND_URL}/_replicator -d " { \"_id\":  \"${task}\", \"source\": \"$auth_url/${source_db}\", \"target\": \"$auth_url/${target_db}\" $additional_opts }"
+  
+  #echo -e "\nGetting replication status of task \"$task\":"
+  #$CURL -X GET ${BACKEND_URL}/_replicator/$task
+
+  wait_for_complete_replication $backend_url
+}
+
+restore_db () {
+  local url=$1
+  local db=$2
+  local user=$3
+  local pw=$4
+  local dumpdir=$5
+  [ -z $dumpdir ] && dumpdir='/var/backups/couchdb'
+
+  # restore with couchdb-load only works with an empty db
+  db_exists $url $db && delete_db $url $db
+  create_db $url $db
+  
+  $CURL -X PUT "${url}/${db}/_security" -d  @${dumpdir}/${db}_security
+  
+  couchdb-load -u $user -p $pw ${url}/$db <  ${dumpdir}/$db 
+
+  # old style
+  # $CURL -d @${dumpdir}/$db -X POST "${url}/${db}/_bulk_docs"
+}
+
+set_security () {
+  local url=$1
+  local db=$2
+  local security=$3
+  $CURL -X PUT "${url}/${db}/_security" -d $security
+}
+
+wait_for_complete_replication () {
+  local backend_url=$1
+  local uncomplete_tasks=1
+  echo -e "\nWaiting for uncompleted replication tasks"
+  while [ $uncomplete_tasks -gt 0 ]
+  do
+    uncomplete_tasks=`$CURL -X GET "${backend_url}/_replicator/_all_docs/?include_docs=true" | egrep -v '("_replication_state":"completed"|"id":"_design/_replicator"|{"total_rows":|^]}$)'|wc -l`
+    sleep 1
+  done
+}
