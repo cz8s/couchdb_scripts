@@ -1,22 +1,39 @@
 Leap Couchdb/Bigcouch scripts
 =============================
 
-Issues
-------
+Todo
+====
 
-* dump_db() and restore_db() rely on python-couchdb package, 
-  python-couchdb =< 0.8-1 needs to be patched, see
-  http://code.google.com/p/couchdb-python/issues/detail?id=194 
+* move from curl to wget, because it's faster
 
+Prerequisites
+=============
 
-Exapmples
-=========
+use a  ./~.netrc file for authentication:
+
+    machine 127.0.0.1 login admin password YOUR_PW 
+
+Examples
+========
 
 Use couchdb functions on command line
 -------------------------------------
 
     . couchdb-scripts-defaults.conf
     . couchdb_functions
+
+    # get all db names
     get_dbs $URL 
-    restore_db $URL users_replicated $user $pw
+
+    # delete db
+    delete_db $URL users
+
+    # dump db "users" to stdout
+    dump_db $URL users
+
+    # Dump db "users" to default backupdir 
+    dump_db_to_file $URL users
+    
+    # restore db "users" from default backupdir
+    restore_db $URL users 
 

@@ -39,7 +39,16 @@ doc_exists () {
 }
 
 
-dump_db () {
+dump_db_old () {
+  # couchdb-dump cmd is VERY slow
+  # we don't use this method in production, 
+  # only left here for speed evaluation
+
+  # dump_db() and restore_db() rely on python-couchdb package,
+  #  python-couchdb =< 0.8-1 needs to be patched, see
+  #  http://code.google.com/p/couchdb-python/issues/detail?id=194
+
+
   local url=$1
   local db=$2
   local user=$3
@@ -49,18 +58,73 @@ dump_db () {
   [ -z $dumpdir ] && dumpdir='/var/backups/couchdb'
   
   echo "Dumping db \"$db\" to ${dumpdir}/$db"
-  # couchdb-dump cmd is VERY slow, simply dumping _all_docs?include_docs=true 
-  # to a file is faster with the factor ~60 (!)
   couchdb-dump -u $user -p $pw ${url}/$db > ${dumpdir}/$db #2>/dev/null
-
-  # restoring from this will not include _design/User right
-  #$CURL -X GET "${URL}/${db}/_all_docs?include_docs=true" > ${DUMPDIR}/$db
 
   echo "Dumping _security to ${DUMPDIR}/${db}_security"
   $CURL -X GET "${URL}/${db}/_security" > ${DUMPDIR}/${db}_security
 
   chmod 600 ${dumpdir}/${db}*
 }
+
+dump_db () {
+  local url=$1
+  local db=$2
+
+  # old curl options, just for re-evaluating speed
+  # curl_opts='--netrc-file /etc/couchdb/couchdb.netrc'
+
+  #read -a docs <<< `curl $curl_opts -sS 127.0.0.1:5984/$db/_all_docs | json_pp | sed -ne 's/"id" : "//p' | sed -e 's/",//'`
+  read -a docs <<< `wget $WGET_OPTS 127.0.0.1:5984/$db/_all_docs | json_pp | sed -ne 's/"id" : "//p' | sed -e 's/",//'`
+
+  count=${#docs[*]}
+  last=${docs[$(( count - 1 ))]}
+
+  echo '{'
+  echo '"new_edits":false,'
+  echo '"docs": ['
+  for id in "${docs[@]}"
+  do
+    # curl $curl_opts -sS 127.0.0.1:5984/$db/$id
+    wget $WGET_OPTS 127.0.0.1:5984/$db/$id 
+    if [[ $id != $last ]]
+    then
+      echo ','
+    fi
+  done
+
+  echo ']'
+  echo '}'
+}
+
+dump_db_to_file () {
+  local url=$1
+  local db=$2
+  local dumpdir=$3
+
+  [ -z $dumpdir ] && dumpdir='/var/backups/couchdb'
+  echo "Dumping db \"$db\" to ${dumpdir}/$db"
+
+  dump_db $url $db $dumpdir > ${dumpdir}/$db
+  chmod 600 ${dumpdir}/${db}
+
+  dump_db_security $url $db $dumpdir
+}
+
+dump_db_security () {
+
+
+  local url=$1
+  local db=$2
+  local dumpdir=$3
+
+  [ -z $dumpdir ] && dumpdir='/var/backups/couchdb'
+
+  echo "Dumping \"$db\" _security to ${DUMPDIR}/${db}_security"
+  $CURL -X GET "${URL}/${db}/_security" > ${DUMPDIR}/${db}_security
+
+  chmod 600 ${dumpdir}/${db}_security
+} 
+
 
 get_dbs () { 
   local url=$1
@@ -116,9 +180,7 @@ replicate_db () {
 restore_db () {
   local url=$1
   local db=$2
-  local user=$3
-  local pw=$4
-  local dumpdir=$5
+  local dumpdir=$3
   [ -z $dumpdir ] && dumpdir='/var/backups/couchdb'
 
   # restore with couchdb-load only works with an empty db
