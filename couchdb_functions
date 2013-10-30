@@ -189,7 +189,7 @@ restore_db () {
   
   $CURL -X PUT "${url}/${db}/_security" -d  @${dumpdir}/${db}_security
   
-  couchdb-load -u $user -p $pw ${url}/$db <  ${dumpdir}/$db 
+  couchdb-load -u $couchdb_user -p $couchdb_pw ${url}/$db <  ${dumpdir}/$db 
 
   # old style
   # $CURL -d @${dumpdir}/$db -X POST "${url}/${db}/_bulk_docs"
