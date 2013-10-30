@@ -1,6 +1,6 @@
 #!/bin/bash
 
-. couchdb-scripts-defaults.conf
+. couchdb_scripts_defaults.conf
 . couchdb_functions
 
 # create backupdir

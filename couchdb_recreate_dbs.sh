@@ -14,7 +14,7 @@
 # concurrent replication might cause stalled tasks, see #https://leap.se/code/issues/3506,
 # so we use slower, sequential replication here
 
-. couchdb-scripts-defaults.conf
+. couchdb_scripts_defaults.conf
 . couchdb_functions
 
 

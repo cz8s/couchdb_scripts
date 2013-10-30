@@ -19,7 +19,7 @@ Examples
 Use couchdb functions on command line
 -------------------------------------
 
-    . couchdb-scripts-defaults.conf
+    . couchdb_scripts_defaults.conf
     . couchdb_functions
 
     # get all db names
