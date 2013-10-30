@@ -5,7 +5,6 @@
 
 
 dbs="`get_dbs $URL`"
-#dbs='tickets'  # for debugging
 
 for db in $dbs
 do

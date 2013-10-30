@@ -8,9 +8,8 @@
 . couchdb_functions
 
 dbs="`get_dbs $URL`"
-#dbs='users_replicated'  # for debugging
 
 for db in $dbs
 do
-  restore_db ${URL} $db $user $pw
+  restore_db ${URL} $db $couchdb_user $couchdb_pw
 done
