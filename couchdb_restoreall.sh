@@ -3,7 +3,7 @@
 . couchdb_scripts_defaults.conf
 . couchdb_functions
 
-dumpdir=/tmp/restore  # only for debugging
+#dumpdir=/tmp/restore  # only for debugging
 [ -z $dumpdir ] && dumpdir='/var/backups/couchdb'
 
 dbs=`find $dumpdir -type f '!' -name '*_security'`
