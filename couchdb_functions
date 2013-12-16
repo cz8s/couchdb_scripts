@@ -69,7 +69,7 @@ dump_db () {
   # curl_opts='--netrc-file /etc/couchdb/couchdb.netrc'
 
   #read -a docs <<< `curl $curl_opts -sS 127.0.0.1:5984/$db/_all_docs | json_pp | sed -ne 's/"id" : "//p' | sed -e 's/",//'`
-  read -a docs <<< `wget $WGET_OPTS 127.0.0.1:5984/$db/_all_docs | json_pp | sed -ne 's/"id" : "//p' | sed -e 's/",//'`
+  read -a docs <<< `wget $WGET_OPTS 127.0.0.1:5984/$db/_all_docs | json_pp | sed -ne 's/"id" : "//p' | sed -e 's/",//;s/\//%2F/'`
 
   count=${#docs[*]}
   last=${docs[$(( count - 1 ))]}
@@ -80,7 +80,7 @@ dump_db () {
   for id in "${docs[@]}"
   do
     # curl $curl_opts -sS 127.0.0.1:5984/$db/$id
-    wget $WGET_OPTS 127.0.0.1:5984/$db/$id 
+    wget $WGET_OPTS 127.0.0.1:5984/$db/$id?attachments=true 
     if [[ $id != $last ]]
     then
       echo ','
