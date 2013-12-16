@@ -1,8 +1,3 @@
-# dump_db() and restore_db() rely on python-couchdb package, 
-# python-couchdb =< 0.8-1 needs to be patched, see
-# http://code.google.com/p/couchdb-python/issues/detail?id=194 
-
-
 create_db () {
   local url=$1
   local db=$2
@@ -181,17 +176,21 @@ restore_db () {
   local url=$1
   local db=$2
   local dumpdir=$3
-  [ -z $dumpdir ] && dumpdir='/var/backups/couchdb'
+  [ -z $dumpdir ] && local dumpdir='/var/backups/couchdb'
 
   # restore with couchdb-load only works with an empty db
   db_exists $url $db && delete_db $url $db
   create_db $url $db
   
-  $CURL -X PUT "${url}/${db}/_security" -d  @${dumpdir}/${db}_security
+  # security 
+  $CURL -d @${dumpdir}/${db}_security -X PUT "${url}/${db}/_security"
   
-  couchdb-load -u $couchdb_user -p $couchdb_pw ${url}/$db <  ${dumpdir}/$db 
-
+  # content
+  $CURL -d @${dumpdir}/${db} -X POST "${url}/${db}/_bulk_docs"
+  
   # old style
+  # couchdb-load -u $couchdb_user -p $couchdb_pw ${url}/$db <  ${dumpdir}/$db 
+  # very old style
   # $CURL -d @${dumpdir}/$db -X POST "${url}/${db}/_bulk_docs"
 }
 
