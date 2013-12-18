@@ -5,8 +5,9 @@
 
 echo "excluding $EXCLUDE_DBS"
 
-# create backupdir
-[ -d $DUMPDIR ] || mkdir $DUMPDIR
+# remove old content and create fresh backupdir
+[ -d $DUMPDIR ] && rm -rf $DUMPDIR
+mkdir $DUMPDIR
 
 dbs="`get_dbs $URL`"
 
