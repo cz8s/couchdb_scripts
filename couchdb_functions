@@ -72,7 +72,10 @@ dump_db () {
   read -a docs <<< `wget $WGET_OPTS 127.0.0.1:5984/$db/_all_docs | json_pp | sed -ne 's/"id" : "//p' | sed -e 's/",//;s/\//%2F/'`
 
   count=${#docs[*]}
-  last=${docs[$(( count - 1 ))]}
+  if [[ $count != 0 ]]
+  then
+    last=${docs[$(( count - 1 ))]}
+  fi
 
   echo '{'
   echo '"new_edits":false,'
