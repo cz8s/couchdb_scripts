@@ -3,6 +3,11 @@
 
 WARN=10
 CRIT=20
+STATUS[0]='OK'
+STATUS[1]='Warning'
+STATUS[2]='Critical'
+CHECKNAME='Bigcouch_Log'
+
 LOG='/opt/bigcouch/var/log/bigcouch.log'
 
 # for debugging: zgrep through old logs
@@ -16,20 +21,17 @@ total=`echo -e "$errors" | grep -v '^$' | wc -l`
 
 if [ $total -lt $WARN ]
 then
-  echo -n "OK"
   exitcode=0
 else
   if [ $total -le $CRIT ]
   then
-    echo -n "Warning"
     exitcode=1
   else
-      echo -n "Critical"
       exitcode=2
   fi
 fi
 
-echo -n ": $total errors in total in $LOG."
+echo -n "$exitcode $CHECKNAME errors=$total ${STATUS[exitcode]}: $total errors in total in $LOG."
 
 if [ ! $total -eq 0 ]
 then
