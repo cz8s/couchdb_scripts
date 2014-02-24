@@ -1,8 +1,8 @@
 #!/bin/bash
 
 
-WARN=10
-CRIT=20
+WARN=1
+CRIT=5
 STATUS[0]='OK'
 STATUS[1]='Warning'
 STATUS[2]='Critical'
