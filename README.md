@@ -1,6 +1,7 @@
 Leap Couchdb/Bigcouch scripts
 =============================
 
+
 Todo
 ====
 
@@ -37,3 +38,9 @@ Use couchdb functions on command line
     # restore db "users" from default backupdir
     restore_db $URL users 
 
+
+Copright / License
+==================
+
+All scripts are released under the terms of the `GNU GPL version 3` or later.
+see LICENCE file for details.
