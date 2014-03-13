@@ -19,7 +19,7 @@ do
   shard=`echo $i | sed "s/^.*shards\///" | cut -d'/' -f 1`
   db=`basename $i .couch`
   echo -n "compacting ${i}:"
-  curl -X POST --netrc-file $NETRC -H "Content-Type: application/json" "http://127.0.0.1:5986/shards%2F${shard}%2F${db}/_compact"
+  curl -s -X POST --netrc-file $NETRC -H "Content-Type: application/json" "http://127.0.0.1:5986/shards%2F${shard}%2F${db}/_compact"
   sleep 1
 done
 
