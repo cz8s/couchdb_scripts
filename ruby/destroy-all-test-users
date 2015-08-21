@@ -13,20 +13,39 @@ users_db_name = 'users'
 #user_db_name = 'tmp_users'
 identities_db_name = 'identities'
 
-server = CouchRest::Server.new
+netrc = File.read('/root/.netrc').split(' ')
+auth = "%{username}:%{password}@" % {username: netrc[3], password: netrc[5]}
+server = CouchRest::Server.new("http://#{auth}localhost:5984")
 users_db = server.database(users_db_name)
 identities_db = server.database(identities_db_name)
 
-records = db.view('User/by_login', :reduce => false, :startkey => 'test_user_', :endkey => 'test_user_'+"\u{fff}")['rows']
+records = users_db.view('User/by_login', :reduce => false, :startkey => 'test_user_', :endkey => 'test_user_'+"\u{fff}")['rows']
 records.each do |record|
   user_id = record['id']
   username = record['key']
-  storage_db = server.database("user-" + user_id)
-  storage_db.delete! rescue RestClient::ResourceNotFound
+  begin
+    doc = users_db.get(user_id)
+    users_db.delete_doc(doc)
+    puts "deleted #{users_db.name}/#{user_id} (#{username})"
+  rescue RestClient::ResourceNotFound
+  end
+  begin
+    storage_db = server.database("user-" + user_id)
+    storage_db.delete!
+    puts "  deleted #{storage_db.name}"
+  rescue RestClient::ResourceNotFound
+  end
   identities_db.view('Identity/by_user_id', :reduce => false, :startkey => user_id, :endkey => user_id)['rows'].each do |row|
-    identities_db.delete_doc(row['id'])
+    begin
+      doc = identities_db.get(row['id'])
+      identities_db.delete_doc(doc)
+      puts "  deleted #{identities_db.name}/#{row['id']}"
+    rescue RestClient::ResourceNotFound
+    end
   end
 end
 
 users_db.compact!
 identities_db.compact!
+
+puts "DONE"
