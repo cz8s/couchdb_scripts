@@ -1,0 +1,14 @@
+#!/usr/bin/ruby
+
+require 'couchrest'
+
+server = CouchRest::Server.new
+
+server.databases.each do |db_name|
+  if db_name =~ /^user-[a-f0-9]{32}$/
+    server.database(db_name).delete!
+  end
+end
+
+
+
