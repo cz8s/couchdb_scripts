@@ -23,24 +23,37 @@ records = users_db.view('User/by_login', :reduce => false, :startkey => 'test_us
 records.each do |record|
   user_id = record['id']
   username = record['key']
+  tries = 0
   begin
-    doc = users_db.get(user_id)
-    users_db.delete_doc(doc)
-    puts "deleted #{users_db.name}/#{user_id} (#{username})"
-  rescue RestClient::ResourceNotFound
-  end
-  begin
-    storage_db = server.database("user-" + user_id)
-    storage_db.delete!
-    puts "  deleted #{storage_db.name}"
-  rescue RestClient::ResourceNotFound
-  end
-  identities_db.view('Identity/by_user_id', :reduce => false, :startkey => user_id, :endkey => user_id)['rows'].each do |row|
     begin
-      doc = identities_db.get(row['id'])
-      identities_db.delete_doc(doc)
-      puts "  deleted #{identities_db.name}/#{row['id']}"
+      doc = users_db.get(user_id)
+      users_db.delete_doc(doc)
+      puts "deleted #{users_db.name}/#{user_id} (#{username})"
     rescue RestClient::ResourceNotFound
+    end
+    begin
+      storage_db = server.database("user-" + user_id)
+      storage_db.delete!
+      puts "  deleted #{storage_db.name}"
+    rescue RestClient::ResourceNotFound
+    end
+    identities_db.view('Identity/by_user_id', :reduce => false, :startkey => user_id, :endkey => user_id)['rows'].each do |row|
+      begin
+        doc = identities_db.get(row['id'])
+        identities_db.delete_doc(doc)
+        puts "  deleted #{identities_db.name}/#{row['id']}"
+      rescue RestClient::ResourceNotFound
+      end
+    end
+  rescue RestClient::RequestTimeout
+    tries += 1
+    if tries < 10
+      puts "Got timeout, retrying"
+      sleep 10
+      retry
+    else
+      puts "Retry limit reached"
+      exit(1)
     end
   end
 end
