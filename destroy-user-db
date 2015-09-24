@@ -1,0 +1,47 @@
+#!/usr/bin/ruby
+
+require_relative "lib/leap"
+
+def main()
+  parse_opts
+  server   = LEAP::Server.new
+  users_db = LEAP::Users.new(server)
+  record   = users_db.find_by_login($username)
+  if record.nil?
+    puts "Username #{$username} does not exist."
+    exit 1
+  end
+  dbname   = "user-#{record.id}"
+  begin
+    server.database(dbname).delete!
+    puts "Deleted DB #{dbname}"
+    exit 0
+  rescue RestClient::ResourceNotFound
+    puts "DB does not exist: #{dbname}"
+    exit 1
+  end
+end
+
+def parse_opts()
+  $username = nil
+  while cmd = ARGV.shift
+    case cmd
+      when "--username"
+        $username = ARGV.shift
+      else
+        usage
+    end
+  end
+  unless $username
+    usage
+  end
+end
+
+def usage()
+  puts "#{$0} COMMAND"
+  puts "Commands:"
+  puts "  --username USERNAME - destroy the user db corresponding to USERNAME."
+  exit(1)
+end
+
+main()
