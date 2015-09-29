@@ -30,6 +30,7 @@ module LEAP
     end
 
     def all_ids
+      self.all_docs["rows"].map {|row| row["id"]}
     end
 
   end

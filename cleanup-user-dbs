@@ -1,0 +1,37 @@
+#!/usr/bin/ruby
+
+#
+# This script will destroy every per-user storage database
+# where the corresponding user record does not exist.
+#
+# This should be run regularly by cron to clean up old storage dbs.
+#
+# This script is inefficient, but hopefully we will not be using couchdb
+# by the time that becomes a problem.
+#
+
+require_relative "lib/leap"
+
+server      = LEAP::Server.new
+users_db    = LEAP::Users.new(server)
+user_ids    = users_db.all_ids.inject({}) {|h,i| h[i] = true; h}
+storage_dbs = server.storage_dbs
+
+begin
+  storage_dbs.each do |db|
+    user_id = db.sub(/^user-/,'')
+    unless user_ids[user_id]
+      begin
+        server.database(db).delete!
+        puts "Deleted storage DB `#{db}`."
+      rescue RestClient::ResourceNotFound
+        puts "Storage DB `#{db}` does not exist."
+      end
+    end
+  end
+rescue Exception => exc
+  STDERR.puts "ERROR: unhandled exception, #{exc}."
+  exit(1)
+end
+
+exit(0)
