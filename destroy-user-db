@@ -6,20 +6,46 @@ def main()
   parse_opts
   server   = LEAP::Server.new
   users_db = LEAP::Users.new(server)
+  identities_db = server.database('identities')
+  all_users_db = server.database('users')
   record   = users_db.find_by_login($username)
+  user_id = record.id
+  return_code = 0
   if record.nil?
     puts "Username #{$username} does not exist."
-    exit 1
+    return_code=1
   end
-  dbname   = "user-#{record.id}"
+  dbname   = "user-#{user_id}"
   begin
     server.database(dbname).delete!
     puts "Deleted DB #{dbname}"
-    exit 0
   rescue RestClient::ResourceNotFound
     puts "DB does not exist: #{dbname}"
-    exit 1
+    return_code=1
   end
+  if $destroy_identities == TRUE
+    identities_db.view('Identity/by_user_id', :reduce => false, :startkey => user_id, :endkey => user_id)['rows'].each do |row|
+	    begin
+	      doc = identities_db.get(row['id'])
+	      identities_db.delete_doc(doc)
+	      puts "  deleted #{identities_db.name}/#{row['id']}"
+	    rescue RestClient::ResourceNotFound
+	      puts "identities DB does not exist: #{doc}"
+              return_code=1
+	    end
+    end 
+    all_users_db.view('User/by_login', :reduce => false, :startkey => $username, :endkey => $username)['rows'].each do |row|
+      begin
+	      doc = all_users_db.get(user_id)
+	      all_users_db.delete_doc(doc)
+	      puts "  deleted #{user_id} from user db"
+	    rescue RestClient::ResourceNotFound
+	      puts "user not found in user db: #{user_id}"
+        return_code=1
+	    end
+    end
+  end
+  exit return_code
 end
 
 def parse_opts()
@@ -28,6 +54,8 @@ def parse_opts()
     case cmd
       when "--username"
         $username = ARGV.shift
+      when "--destroy-identities"
+        $destroy_identities=TRUE
       else
         usage
     end
@@ -41,6 +69,7 @@ def usage()
   puts "#{$0} COMMAND"
   puts "Commands:"
   puts "  --username USERNAME - destroy the user db corresponding to USERNAME."
+  puts "  --destroy-identities - re-enable user for future sign-up"
   exit(1)
 end
 
